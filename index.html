@@ -1,0 +1,147 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+#app{padding:1.5rem 1rem;max-width:480px;margin:0 auto;text-align:center;}
+#score-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:0.8rem;font-size:14px;color:var(--color-text-secondary);}
+#progress-bar-bg{height:8px;border-radius:99px;background:var(--color-background-secondary);overflow:hidden;margin-bottom:1.2rem;}
+#progress-bar-fill{height:8px;border-radius:99px;background:#639922;transition:width 0.4s;}
+#big-char{font-size:120px;font-weight:500;line-height:1;margin:0.2rem 0 0.5rem;color:var(--color-text-primary);}
+#prompt{font-size:15px;color:var(--color-text-secondary);margin-bottom:1.2rem;}
+#choices{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.2rem;}
+.choice-btn{padding:14px 8px;font-size:28px;font-weight:500;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);background:var(--color-background-primary);color:var(--color-text-primary);cursor:pointer;transition:background 0.12s;}
+.choice-btn:hover:not(:disabled){background:var(--color-background-secondary);}
+.choice-btn.correct{background:#EAF3DE;border-color:#639922;color:#3B6D11;}
+.choice-btn.wrong{background:#FCEBEB;border-color:#E24B4A;color:#A32D2D;}
+.choice-btn:disabled{cursor:default;}
+#feedback{font-size:20px;font-weight:500;height:32px;margin-bottom:0.8rem;}
+#next-btn{display:none;padding:12px 36px;font-size:16px;font-weight:500;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-secondary);color:var(--color-text-primary);cursor:pointer;}
+#next-btn:hover{background:var(--color-background-primary);}
+#result{display:none;padding:2rem 1rem;}
+#result h2{font-size:24px;font-weight:500;margin-bottom:0.8rem;}
+#result p{font-size:16px;color:var(--color-text-secondary);margin-bottom:1.5rem;line-height:1.7;}
+#retry-btn{padding:12px 36px;font-size:16px;font-weight:500;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-secondary);color:var(--color-text-primary);cursor:pointer;}
+#retry-btn:hover{background:var(--color-background-primary);}
+</style>
+<div id="app">
+  <div id="score-bar">
+    <span>のこり <b id="remain-count">71</b> もじ</span>
+    <span id="score-display">⭐ 0</span>
+  </div>
+  <div id="progress-bar-bg"><div id="progress-bar-fill" style="width:0%"></div></div>
+  <div id="big-char"></div>
+  <div id="prompt">このカタカナは ひらがなで どれ？</div>
+  <div id="choices"></div>
+  <div id="feedback"></div>
+  <button id="next-btn">つぎへ →</button>
+  <div id="result">
+    <h2 id="result-emoji"></h2>
+    <p id="result-msg"></p>
+    <button id="retry-btn">もういちど やる！</button>
+  </div>
+</div>
+<script>
+const ALL=[
+  ["ア","あ"],["イ","い"],["ウ","う"],["エ","え"],["オ","お"],
+  ["カ","か"],["キ","き"],["ク","く"],["ケ","け"],["コ","こ"],
+  ["サ","さ"],["シ","し"],["ス","す"],["セ","せ"],["ソ","そ"],
+  ["タ","た"],["チ","ち"],["ツ","つ"],["テ","て"],["ト","と"],
+  ["ナ","な"],["ニ","に"],["ヌ","ぬ"],["ネ","ね"],["ノ","の"],
+  ["ハ","は"],["ヒ","ひ"],["フ","ふ"],["ヘ","へ"],["ホ","ほ"],
+  ["マ","ま"],["ミ","み"],["ム","む"],["メ","め"],["モ","も"],
+  ["ヤ","や"],["ユ","ゆ"],["ヨ","よ"],
+  ["ラ","ら"],["リ","り"],["ル","る"],["レ","れ"],["ロ","ろ"],
+  ["ワ","わ"],["ヲ","を"],["ン","ん"],
+  ["ガ","が"],["ギ","ぎ"],["グ","ぐ"],["ゲ","げ"],["ゴ","ご"],
+  ["ザ","ざ"],["ジ","じ"],["ズ","ず"],["ゼ","ぜ"],["ゾ","ぞ"],
+  ["ダ","だ"],["ヂ","ぢ"],["ヅ","づ"],["デ","で"],["ド","ど"],
+  ["バ","ば"],["ビ","び"],["ブ","ぶ"],["ベ","べ"],["ボ","ぼ"],
+  ["パ","ぱ"],["ピ","ぴ"],["プ","ぷ"],["ペ","ぺ"],["ポ","ぽ"]
+];
+const TOTAL=ALL.length;
+let pool=[],cleared=0,score=0,current=null,answered=false;
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+function init(){
+  pool=shuffle([...ALL]);
+  cleared=0;score=0;answered=false;
+  document.getElementById("score-display").textContent="⭐ 0";
+  document.getElementById("result").style.display="none";
+  document.getElementById("choices").style.display="grid";
+  document.getElementById("big-char").style.display="block";
+  document.getElementById("prompt").style.display="block";
+  document.getElementById("feedback").style.display="block";
+  document.getElementById("next-btn").style.display="none";
+  updateBar();next();
+}
+
+function updateBar(){
+  document.getElementById("progress-bar-fill").style.width=Math.round(cleared/TOTAL*100)+"%";
+  document.getElementById("remain-count").textContent=(TOTAL-cleared);
+}
+
+function next(){
+  if(pool.length===0){showResult();return;}
+  current=pool[Math.floor(Math.random()*pool.length)];
+  document.getElementById("big-char").textContent=current[0];
+  document.getElementById("feedback").textContent="";
+  document.getElementById("feedback").style.color="";
+  document.getElementById("next-btn").style.display="none";
+  const wrongs=shuffle(ALL.filter(k=>k[1]!==current[1])).slice(0,3).map(k=>k[1]);
+  const opts=shuffle([current[1],...wrongs]);
+  const box=document.getElementById("choices");
+  box.innerHTML="";
+  opts.forEach(r=>{
+    const b=document.createElement("button");
+    b.className="choice-btn";
+    b.textContent=r;
+    b.addEventListener("click",()=>answer(b,r));
+    box.appendChild(b);
+  });
+  answered=false;
+}
+
+function answer(btn,chosen){
+  if(answered)return;
+  answered=true;
+  const correct=current[1];
+  document.querySelectorAll(".choice-btn").forEach(b=>{
+    b.disabled=true;
+    if(b.textContent===correct)b.classList.add("correct");
+  });
+  const fb=document.getElementById("feedback");
+  if(chosen===correct){
+    score++;
+    document.getElementById("score-display").textContent="⭐ "+score;
+    fb.textContent="せいかい！🎉";
+    fb.style.color="#3B6D11";
+    btn.classList.add("correct");
+    pool=pool.filter(k=>k[0]!==current[0]);
+    cleared++;
+    updateBar();
+    if(pool.length===0){setTimeout(showResult,800);}
+    else{setTimeout(next,900);}
+  } else {
+    fb.textContent="ざんねん… 「"+correct+"」だよ！";
+    fb.style.color="#A32D2D";
+    btn.classList.add("wrong");
+    document.getElementById("next-btn").style.display="inline-block";
+  }
+}
+
+document.getElementById("next-btn").addEventListener("click",next);
+
+function showResult(){
+  document.getElementById("choices").style.display="none";
+  document.getElementById("big-char").style.display="none";
+  document.getElementById("prompt").style.display="none";
+  document.getElementById("feedback").style.display="none";
+  document.getElementById("next-btn").style.display="none";
+  document.getElementById("result").style.display="block";
+  document.getElementById("result-emoji").textContent="🏆 ぜんぶ せいかい！";
+  document.getElementById("result-msg").textContent="カタカナ "+TOTAL+" もじ ぜんぶ おぼえたね！\nすごい！（"+score+"かい こたえたよ）";
+}
+
+document.getElementById("retry-btn").addEventListener("click",init);
+init();
+</script>
